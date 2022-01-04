@@ -8,6 +8,7 @@ from srwgan import run
 # For FSL and GFSL, a few unseen samples are added into the training set, which is performed based on Xian's ZSL splits by ourselves.
 # Pytorch=1.2.0 and one 2080 Ti GPU are used for model training.
 #=================================================================================================================================================================
+# Note: To see the log in Ubuntu system, use the "cat" command as "cat flo0.log"   
 #
 # GZSL setting
 # CUDA_VISIBLE_DEVICES=0 python3 -u main.py --generalized True --dataset CUB --nz 300 --a 1e-1 --b 1e-3 --c 1e-3 --center_weight 0.01 --syn_num 800 --batch_size 2048 --i_c 0.1 --cls_weight 0.05  --structure_weight 1e-3  > cub0.log 2>&1 &
