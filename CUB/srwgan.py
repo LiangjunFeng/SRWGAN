@@ -50,7 +50,7 @@ def run(opt):
     else:
         print("         CUB: "+str(opt.num_shots)+"-shot learning task is beginning!!!")
     if opt.num_shots > 0:
-        print("   The number of seen classes: " + str(opt.nclass_seen-opt.nclass_unseen) + ", the number of test classes: " + str(
+        print("   The number of seen classes: " + str(opt.nclass_seen-opt.nclass_unseen) + ", the number of unseen classes: " + str(
             opt.nclass_unseen))
     else:
         print("   The number of seen classes: " + str(opt.nclass_seen) + ", the number of unseen classes: " + str(opt.nclass_unseen))
