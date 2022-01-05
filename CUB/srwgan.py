@@ -53,7 +53,7 @@ def run(opt):
         print("   The number of seen classes: " + str(opt.nclass_seen-opt.nclass_unseen) + ", the number of test classes: " + str(
             opt.nclass_unseen))
     else:
-        print("   The number of seen classes: " + str(opt.nclass_seen) + ", the number of test classes: " + str(opt.nclass_unseen))
+        print("   The number of seen classes: " + str(opt.nclass_seen) + ", the number of unseen classes: " + str(opt.nclass_unseen))
     print("   The number of training classes: "+str(opt.nclass_seen)+", the number of training samples: "+str(data.ntrain) )
     print("   The number of test unseen samples: "+str(data.test_unseen_feature.size(0)))
     if opt.generalized:
