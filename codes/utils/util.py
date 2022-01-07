@@ -50,22 +50,21 @@ class load_data(object):
         for i in range(self.seenclasses.shape[0]):
             self.tr_cls_centroid[i] = np.mean(
                 self.train_feature[torch.nonzero(self.train_mapped_label == i), :].numpy(), axis=0)
-        n_cluster = opt.n_clusters
-
-        real_proto = torch.zeros(n_cluster * self.train_cls_num, self.feature_dim)
+        n = opt.n
+        cn_p = torch.zeros(n * self.train_cls_num, self.feature_dim)
         for i in range(self.train_cls_num):
             sample_idx = (self.train_mapped_label == i).nonzero().squeeze()
             if sample_idx.numel() == 0:
-                real_proto[n_cluster * i: n_cluster * (i + 1)] = torch.zeros(n_cluster, self.feature_dim)
+                cn_p[n * i: n * (i + 1)] = torch.zeros(n, self.feature_dim)
             else:
                 real_sample_cls = self.train_feature[sample_idx, :]
                 if len(real_sample_cls.size()) == 1:
                     real_sample_cls = real_sample_cls.view(-1, 1)
-                y_pred = KMeans(n_clusters=n_cluster, random_state=3).fit_predict(real_sample_cls)
-                for j in range(n_cluster):
-                    real_proto[n_cluster * i + j] = torch.from_numpy(
+                y_pred = KMeans(n, random_state=3).fit_predict(real_sample_cls)
+                for j in range(n):
+                    cn_p[n * i + j] = torch.from_numpy(
                         real_sample_cls[torch.nonzero(torch.from_numpy(y_pred) == j), :].mean(dim=0).cpu().numpy())
-        self.real_proto = real_proto
+        self.cn_p = cn_p
 
     def read_matdataset(self, opt):
         data = sio.loadmat("./dataset/DataOfAnyShot.mat")

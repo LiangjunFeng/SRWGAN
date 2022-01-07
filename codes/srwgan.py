@@ -238,59 +238,55 @@ def run(opt):
             fake_unseen, fake_unseen_noise1, fake_unseen_noise2, fake_unseen_noise3 = netG(input_unseen_att)
 
             seen_z1_mean = get_mean(fake_noise1, input_label, opt.nclass_seen)
-            score_SBC1 = bilinear(input_res.cuda(), seen_z1_mean.cuda())
-            loss_SBC1 = cls_criterion(score_SBC1, input_label)
+            score_a1 = bilinear(input_res.cuda(), seen_z1_mean.cuda())
             labels = Variable(input_label.view(opt.batch_size, 1))
-            real_proto = Variable(data.real_proto.cuda())
-            dists1 = pairwise_distances(fake, real_proto)
+            cn_p = Variable(data.cn_p.cuda())
+            dists1 = pairwise_distances(fake, cn_p)
             min_idx1 = torch.zeros(opt.batch_size, data.train_cls_num)
             for i in range(data.train_cls_num):
-                min_idx1[:, i] = torch.min(dists1.data[:, i * opt.n_clusters:(i + 1) * opt.n_clusters], dim=1)[
-                                     1] + i * opt.n_clusters
+                min_idx1[:, i] = torch.min(dists1.data[:, i * opt.n:(i + 1) * opt.n], dim=1)[
+                                     1] + i * opt.n
             min_idx1 = Variable(min_idx1.long().cuda())
-            bias_eli_loss = opt.proto_param2*dists1.gather(1, min_idx1).gather(1, labels).squeeze().view(-1).mean()
+            bias_eli_loss = opt.param2*dists1.gather(1, min_idx1).gather(1, labels).squeeze().view(-1).mean()
             unseen_z1_mean = get_mean(fake_unseen_noise1, input_unseen_label, opt.nclass_unseen)
-            score_UBC1 = bilinear(fake_unseen.cuda(), unseen_z1_mean.cuda())
-            loss_UBC1 = entropy(score_UBC1)
-            loss_CBC1 = criterion1(torch.mm(seen_z1_mean.T.cuda(), seen_z1_mean.cuda()),
-                                   torch.mm(unseen_z1_mean.T.cuda(), unseen_z1_mean.cuda()))
-            if epoch > opt.k: bias_eli_loss += opt.structure_weight*(opt.a * loss_SBC1 + opt.b * loss_UBC1 + opt.c * loss_CBC1)
-            else: bias_eli_loss += opt.structure_weight*(opt.a * loss_SBC1 + opt.c * loss_CBC1)
+            score_b1 = bilinear(fake_unseen.cuda(), unseen_z1_mean.cuda())
+            loss_c1 = criterion1(torch.mm(seen_z1_mean.T.cuda(), seen_z1_mean.cuda()),
+                                 torch.mm(unseen_z1_mean.T.cuda(), unseen_z1_mean.cuda()))
+            if epoch > opt.k: bias_eli_loss += opt.structure_weight*(opt.a * cls_criterion(score_a1, input_label) + opt.b * entropy(score_b1) + opt.c * loss_c1)
+            else: bias_eli_loss += opt.structure_weight*(opt.a * cls_criterion(score_a1, input_label) + opt.c * loss_c1)
 
             seen_z2_mean = get_mean(fake_noise2, input_label, opt.nclass_seen)
-            score_SBC2 = bilinear2(input_res.cuda(), seen_z2_mean.cuda())
-            loss_SBC2 = entropy(score_SBC2)
+            score_a2 = bilinear2(input_res.cuda(), seen_z2_mean.cuda())
             seen_feature, seen_label = generate_syn_feature_with_grad(netG, data.seenclasses, data.attribute,
                                                                       opt.loss_syn_num, opt)
             seen_mapped_label = map_label(seen_label, data.seenclasses)
-            transform_matrix = torch.zeros(data.train_cls_num, seen_feature.size(0))
+            matrix = torch.zeros(data.train_cls_num, seen_feature.size(0))
             for i in range(data.train_cls_num):
                 sample_idx = (seen_mapped_label == i).nonzero().squeeze()
-                if sample_idx.numel() == 0:
-                    continue
+                if sample_idx.numel() == 0: continue
                 else:
                     cls_fea_num = sample_idx.numel()
-                    transform_matrix[i][sample_idx] = 1 / cls_fea_num * torch.ones(1, cls_fea_num).squeeze()
-            transform_matrix = Variable(transform_matrix.cuda())
-            fake_proto = torch.mm(transform_matrix, seen_feature)
-            dists2 = pairwise_distances(fake_proto, Variable(data.real_proto.cuda()))
+                    matrix[i][sample_idx] = 1 / cls_fea_num * torch.ones(1, cls_fea_num).squeeze()
+            matrix = Variable(matrix.cuda())
+            ou_p = torch.mm(matrix, seen_feature)
+            dists2 = pairwise_distances(ou_p, Variable(data.cn_p.cuda()))
             min_idx2 = torch.zeros(data.train_cls_num, data.train_cls_num)
             for i in range(data.train_cls_num):
-                min_idx2[:, i] = torch.min(dists2.data[:, i * opt.n_clusters:(i + 1) * opt.n_clusters], dim=1)[
-                                     1] + i * opt.n_clusters
+                min_idx2[:, i] = torch.min(dists2.data[:, i * opt.n:(i + 1) * opt.n], dim=1)[
+                                     1] + i * opt.n
             min_idx2 = Variable(min_idx2.long().cuda())
             lbl_idx = Variable(torch.LongTensor(list(range(data.train_cls_num))).cuda())
-            aux_loss = opt.proto_param1*dists2.gather(1, min_idx2).gather(1, lbl_idx.unsqueeze(1)).squeeze().mean()
+            aux_loss = opt.param1*dists2.gather(1, min_idx2).gather(1, lbl_idx.unsqueeze(1)).squeeze().mean()
             unseen_z2_mean = get_mean(fake_unseen_noise2, input_unseen_label, opt.nclass_unseen)
-            loss_CBC2 = criterion2(torch.mm(seen_z2_mean.T.cuda(), seen_z2_mean.cuda()),
-                                   torch.mm(unseen_z2_mean.T.cuda(), unseen_z2_mean.cuda()))
-            aux_loss += opt.structure_weight * (opt.a * loss_SBC2 + opt.c * loss_CBC2)
+            loss_c2 = criterion2(torch.mm(seen_z2_mean.T.cuda(), seen_z2_mean.cuda()),
+                                 torch.mm(unseen_z2_mean.T.cuda(), unseen_z2_mean.cuda()))
+            aux_loss += opt.structure_weight * (opt.a * entropy(score_a2) + opt.c * loss_c2)
 
             seen_z3_mean = get_mean(fake_noise3, input_label, opt.nclass_seen)
             unseen_z3_mean = get_mean(fake_unseen_noise3, input_unseen_label, opt.nclass_unseen)
-            random_loss = opt.c * criterion3(torch.mm(seen_z3_mean.T.cuda(), seen_z3_mean.cuda()),
+            random_c = opt.c * criterion3(torch.mm(seen_z3_mean.T.cuda(), seen_z3_mean.cuda()),
                                              torch.mm(unseen_z3_mean.T.cuda(), unseen_z3_mean.cuda()))
-            random_loss = opt.structure_weight * random_loss
+            random_loss = opt.structure_weight * random_c
 
             _, _, criticG_fake, latent_pred_fake, _ = mapping(fake, input_att, train_G=True)
             criticG_fake = criticG_fake.mean()
